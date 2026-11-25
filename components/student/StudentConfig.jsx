@@ -1,0 +1,259 @@
+import { Pencil, Eye, KeyRound, GraduationCap } from 'lucide-react';
+
+export const datagridColumns = (
+    rolePriority = null,
+    setOpen = null,
+    setSelectedId = null,
+    onGenerateLogin = null,
+    loadingLoginId = null,
+    classes = [],
+    sections = [],
+    navigateTo = null,
+    utils = {}
+) => {
+    const {
+        appendSuffix = (val) => val,
+        capitalizeEveryWord = (val) => val || '',
+        formatDate = (val) => val || '-',
+        formatBloodGroup = (val) => val || '-'
+    } = utils || {};
+
+    const handleActionEdit = (id) => {
+        if (navigateTo) {
+            navigateTo(`/student/update/${id}`, { state: { id: id } });
+        }
+    };
+
+    const handleActionShow = (id) => {
+        if (setOpen) setOpen(true);
+        if (setSelectedId) setSelectedId(id);
+    };
+
+    const columns = [
+        {
+            field: "roll_no",
+            headerName: "Roll No",
+            headerAlign: "center",
+            align: "center",
+            flex: 0.7,
+            minWidth: 90,
+            renderCell: ({ row }) => {
+                const roll = row.roll_no ?? row.enrollment_no;
+                if (!roll) return <span className="text-slate-400 font-medium">-</span>;
+                return (
+                    <div className="flex justify-center items-center w-full h-full">
+                        <span className="font-mono text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md border border-slate-200 dark:border-slate-700">
+                            #{roll}
+                        </span>
+                    </div>
+                );
+            }
+        },
+        {
+            field: "fullname",
+            headerName: "Student Name",
+            headerAlign: "center",
+            align: "center",
+            flex: 1.2,
+            minWidth: 150,
+            valueGetter: (value, row) => `${capitalizeEveryWord(row.firstname) || ''} ${capitalizeEveryWord(row.lastname)|| ''}`.trim()
+        },
+        {
+            field: "class",
+            headerName: "Class",
+            headerAlign: "center",
+            align: "center",
+            flex: 0.9,
+            minWidth: 110,
+            renderCell: ({ row }) => {
+                // 1. Direct server-enriched names (instant zero-latency rendering)
+                let className = row?.class_name;
+                let sectionName = row?.section_name;
+
+                // 2. Client fallback lookup if server hasn't populated them
+                if (!className && row?.class && classes?.length) {
+                    const found = classes.find((c) => (c?.id === row.class || c?.class_id === row.class));
+                    className = found?.class_name || found?.name;
+                }
+                if (!sectionName && row?.section && sections?.length) {
+                    const found = sections.find((s) => (s?.id === row.section || s?.section_id === row.section));
+                    sectionName = found?.section_name || found?.name;
+                }
+
+                if (!className) return <span className="text-slate-400 font-medium">-</span>;
+
+                return (
+                    <div className="font-semibold text-slate-700 dark:text-slate-200">
+                        {appendSuffix(className)} {sectionName ? `(${sectionName})` : ''}
+                    </div>
+                );
+            }
+        },
+        {
+            field: "admission_date",
+            headerName: "Admission Date",
+            headerAlign: "center",
+            align: "center",
+            flex: 1,
+            minWidth: 130,
+            renderCell: ({ row: { admission_date } }) => {
+                if (!admission_date) return <span className="text-slate-400 font-medium">-</span>;
+                return (
+                    <div className="flex justify-center items-center w-full h-full text-slate-600 dark:text-slate-300 font-medium text-xs">
+                        {formatDate(admission_date)}
+                    </div>
+                );
+            }
+        },
+        {
+            field: "contact_no",
+            headerName: "Contact No",
+            headerAlign: "center",
+            align: "center",
+            flex: 1,
+            minWidth: 120,
+            renderCell: ({ row }) => {
+                const rawContact = row.contact_no || row.father_contact_no || row.mother_contact_no;
+                if (!rawContact) return <span className="text-slate-400 font-medium">-</span>;
+                const contact = String(rawContact).split('.')[0];
+                return (
+                    <div className="flex justify-center items-center w-full h-full font-mono text-xs text-slate-600 dark:text-slate-300">
+                        {contact}
+                    </div>
+                );
+            }
+        },
+        {
+            field: "blood_group",
+            headerName: "Blood Group",
+            headerAlign: "center",
+            align: "center",
+            flex: 0.8,
+            minWidth: 100,
+            renderCell: ({ row: { blood_group } }) => {
+                const formatted = formatBloodGroup(blood_group);
+                if (!blood_group || formatted === '-') {
+                    return <span className="text-slate-400 font-medium">-</span>;
+                }
+                return (
+                    <div className="flex justify-center items-center w-full h-full">
+                        <span className="inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-bold tracking-wide bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border border-rose-200/80 dark:border-rose-900/50 shadow-2xs">
+                            {formatted}
+                        </span>
+                    </div>
+                );
+            }
+        },
+        {
+            field: "status",
+            headerName: "Status",
+            headerAlign: "center",
+            align: "center",
+            flex: 0.8,
+            minWidth: 100,
+            renderCell: ({ row: { status } }) => {
+                const isActive = status === "active";
+                return (
+                    <div className="flex justify-center items-center w-full h-full">
+                        <div
+                            className={`px-2.5 py-0.5 rounded-full text-xs font-bold tracking-wider uppercase shadow-xs ${
+                                isActive 
+                                    ? "bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border-emerald-500/30" 
+                                    : "bg-red-100 text-red-700 border border-red-200 dark:bg-red-500/20 dark:text-red-400 dark:border-red-500/30"
+                            }`}
+                        >
+                            {capitalizeEveryWord(status) || ''}
+                        </div>
+                    </div>
+                );
+            }
+        },
+        {
+            field: "user_id",
+            headerName: "Student Login",
+            headerAlign: "center",
+            align: "center",
+            flex: 1.1,
+            minWidth: 145,
+            renderCell: ({ row }) => {
+                const hasLogin = Boolean(row.user_id);
+                const isLoading = loadingLoginId === row.id;
+
+                if (hasLogin) {
+                    return (
+                        <div className="flex justify-center items-center gap-1.5 w-full h-full">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200/80 dark:border-indigo-900/50 shadow-2xs">
+                                <GraduationCap className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                                Active
+                            </span>
+                            {onGenerateLogin && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onGenerateLogin(row);
+                                    }}
+                                    disabled={isLoading}
+                                    title="View / Reset Student Credentials"
+                                    className="p-1 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 rounded-md transition-colors cursor-pointer"
+                                >
+                                    <KeyRound className="w-3.5 h-3.5" />
+                                </button>
+                            )}
+                        </div>
+                    );
+                }
+
+                return (
+                    <div className="flex justify-center items-center w-full h-full">
+                        {onGenerateLogin ? (
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onGenerateLogin(row);
+                                }}
+                                disabled={isLoading}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold text-amber-700 dark:text-amber-300 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-900/60 border border-amber-200/80 dark:border-amber-800/60 rounded-lg shadow-2xs transition-all hover:scale-[1.02] cursor-pointer disabled:opacity-50"
+                            >
+                                <KeyRound className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                                {isLoading ? "Generating..." : "Generate Login"}
+                            </button>
+                        ) : (
+                            <span className="text-slate-400 text-xs font-medium">Unprovisioned</span>
+                        )}
+                    </div>
+                );
+            }
+        },
+        {
+            field: "action",
+            headerName: "Action",
+            headerAlign: "center",
+            align: "center",
+            flex: 0.8,
+            minWidth: 90,
+            renderCell: ({ row: { id } }) => {
+                return (
+                    <div className="flex justify-center items-center gap-1.5 w-full h-full">
+                        {rolePriority !== 1 && (
+                            <button
+                                onClick={() => handleActionEdit(id)}
+                                className="p-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 dark:bg-blue-500/10 dark:hover:bg-blue-500/20 dark:text-blue-400 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/50 cursor-pointer"
+                                title="Edit"
+                            >
+                                <Pencil className="w-4 h-4" />
+                            </button>
+                        )}
+                        <button
+                            onClick={() => handleActionShow(id)}
+                            className="p-1.5 bg-slate-50 hover:bg-slate-100 text-slate-600 dark:bg-slate-500/10 dark:hover:bg-slate-500/20 dark:text-slate-400 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-slate-500/50 cursor-pointer"
+                            title="Preview"
+                        >
+                            <Eye className="w-4 h-4" />
+                        </button>
+                    </div>
+                );
+            }
+        }
+    ];
+    return columns;
+};

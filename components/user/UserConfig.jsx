@@ -1,0 +1,132 @@
+/* eslint-disable react-hooks/rules-of-hooks */
+/**
+ * Copyright © 2023, School CRM Inc. ALL RIGHTS RESERVED.
+ *
+ * This software is the confidential information of School CRM Inc., and is licensed as
+ * restricted rights software. The use,reproduction, or disclosure of this software is subject to
+ * restrictions set forth in your license agreement with School CRM.
+ */
+
+import { useNavigate } from "@/lib/routerAdapter";
+import { useSelector } from "react-redux";
+import { Pencil, Eye } from 'lucide-react';
+
+import { Utility } from "../utility";
+
+export const datagridColumns = (rolePriority = null, setOpenModal = null, setSelectedUserId = null) => {
+  const selected = useSelector((state) => state.menuItems.selected);
+
+  const { capitalizeEveryWord, formatDate } = Utility();
+  const navigateTo = useNavigate();
+
+  const handleActionEdit = (id) => {
+    navigateTo(`/${selected.toLowerCase()}/update/${id}`, {
+      state: { id: id },
+    });
+  };
+
+  const handleActionShow = (id) => {
+    if (setSelectedUserId) setSelectedUserId(id);
+    if (setOpenModal) setOpenModal(true);
+  };
+
+  const columns = [
+    {
+      field: "username",
+      headerName: "Username",
+      headerAlign: "center",
+      align: "center",
+      flex: 1,
+      minWidth: 120,
+      valueGetter: (value, row) => `${capitalizeEveryWord(row.username) || ""}`,
+    },
+    {
+      field: "role_name",
+      headerName: "Role",
+      headerAlign: "center",
+      align: "center",
+      flex: 1,
+      minWidth: 100,
+      // role_name comes directly from the enriched SQL JOIN — no Redux lookup needed.
+      // Column filter now works on the string value (e.g. "Member"), not the raw FK integer.
+      valueGetter: (value, row) => capitalizeEveryWord(row.role_name || row.role?.toString() || ""),
+    },
+    {
+      field: "contact_no",
+      headerName: "Contact",
+      headerAlign: "center",
+      align: "center",
+      flex: 1,
+      minWidth: 100
+    },
+    {
+      field: "email",
+      headerName: "E-mail",
+      headerAlign: "center",
+      align: "center",
+      flex: 1,
+      minWidth: 200
+    },
+    {
+      field: "updated_at",
+      headerName: "Updated",
+      headerAlign: "center",
+      align: "center",
+      flex: 1,
+      minWidth: 100,
+      valueFormatter: (value) => `${formatDate(value)}`
+    },
+    {
+      field: "status",
+      headerName: "Status",
+      headerAlign: "center",
+      align: "center",
+      flex: 1,
+      minWidth: 120,
+      renderCell: ({ row: { status } }) => {
+        return (
+          <div className="flex justify-center items-center w-full h-full">
+            <div className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                status === "active"
+                    ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400"
+                    : "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400"
+            }`}>
+                {capitalizeEveryWord(status) || ''}
+            </div>
+          </div>
+        );
+      }
+    },
+    {
+      field: "action",
+      headerName: "Action",
+      headerAlign: "center",
+      align: "center",
+      flex: 1,
+      minWidth: 90,
+      renderCell: ({ row: { id } }) => {
+        return (
+          <div className="flex justify-center items-center gap-1.5 w-full h-full">
+            {rolePriority !== 1 && (
+              <button
+                onClick={() => handleActionEdit(id)}
+                className="p-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 dark:bg-blue-500/10 dark:hover:bg-blue-500/20 dark:text-blue-400 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/50 cursor-pointer"
+                title="Edit"
+              >
+                <Pencil className="w-4 h-4" />
+              </button>
+            )}
+            <button
+              onClick={() => handleActionShow(id)}
+              className="p-1.5 bg-slate-50 hover:bg-slate-100 text-slate-600 dark:bg-slate-500/10 dark:hover:bg-slate-500/20 dark:text-slate-400 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-slate-500/50 cursor-pointer"
+              title="Preview Dossier"
+            >
+              <Eye className="w-4 h-4" />
+            </button>
+          </div>
+        );
+      }
+    }
+  ];
+  return columns;
+};

@@ -1,0 +1,689 @@
+/* eslint-disable react-hooks/exhaustive-deps */
+/**
+ * Copyright © 2023, School CRM Inc. ALL RIGHTS RESERVED.
+ *
+ * This software is the confidential information of School CRM Inc., and is licensed as
+ * restricted rights software. The use, reproduction, or disclosure of this software is subject to
+ * restrictions set forth in your license agreement with School CRM.
+ */
+
+import React, { useEffect, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { useLocation, useNavigate } from "@/lib/routerAdapter";
+import PropTypes from "prop-types";
+
+import {
+  LayoutDashboard,
+  Building2,
+  Users,
+  Bus,
+  User,
+  UserCircle,
+  Calendar,
+  ReceiptText,
+  Activity,
+  UserCheck,
+  LayoutGrid,
+  List,
+  BookOpen,
+  Settings,
+  BookCopy,
+  FileCheck,
+  MessageSquare,
+  Table,
+  Hourglass,
+  Flag,
+  HelpCircle,
+  FileText,
+  ChevronDown,
+  ChevronRight,
+  LogOut
+} from "lucide-react";
+
+import API from "../../apis";
+import ProfileModal from "../models/ProfileModal";
+import ChangePwModal from "../models/ChangePwModal";
+import {
+  setAllClasses,
+  setSchoolClasses,
+} from "../../redux/actions/ClassAction";
+import { SidebarItem } from "./SidebarItem";
+import { Utility } from "../utility";
+
+import dpsImg from "../assets/schoolImg.jpg";
+
+const Sidebar = ({ rolePriority, isCollapsed, setIsCollapsed, schoolInfo }) => {
+  const [isSubMenuOpen, setIsubMenuOpen] = useState(false);
+  const [schoolId, setSchoolId] = useState(null);
+  const [schoolImg, setSchoolImg] = useState(null);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [changePwModalOpen, setChangePwModalOpen] = useState(false);
+  const sidebarRef = React.useRef(null);
+
+  const selected = useSelector((state) => state.menuItems.selected);
+  const schoolClasses = useSelector((state) => state.schoolClasses);
+  const allClasses = useSelector((state) => state.allClasses);
+
+  const dispatch = useDispatch();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const isMobile = typeof window !== "undefined" && window.innerWidth <= 480;
+  const isTab = typeof window !== "undefined" && window.innerWidth <= 920;
+
+  // Track sidebar scroll position so it never jumps to top on menu item clicks
+  const handleSidebarScroll = (e) => {
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("sidebar_scroll_pos", String(e.currentTarget.scrollTop));
+    }
+  };
+
+  useEffect(() => {
+    if (sidebarRef.current && typeof window !== "undefined") {
+      const saved = sessionStorage.getItem("sidebar_scroll_pos");
+      if (saved !== null) {
+        sidebarRef.current.scrollTop = Number(saved);
+      }
+    }
+  }, [location.pathname]);
+
+  const {
+    fetchAndSetAll,
+    fetchAndSetSchoolData,
+    getLocalStorage,
+    setLocalStorage,
+    remLocalStorage,
+    addClassKeyword,
+    getInitials,
+    capitalizeEachWord
+  } = Utility();
+
+  const classData =
+    (schoolClasses?.listData?.length
+      ? schoolClasses.listData
+      : allClasses?.listData) || [];
+
+  useEffect(() => {
+    const schoolInfoLocal = getLocalStorage("schoolInfo");
+
+    if (!schoolInfoLocal && (!allClasses || !allClasses.listData || allClasses.listData.length === 0)) {
+      fetchAndSetAll(dispatch, setAllClasses, API.ClassAPI);
+    } else if (schoolInfoLocal && (!schoolClasses || !schoolClasses.listData || schoolClasses.listData.length === 0)) {
+      fetchAndSetSchoolData(dispatch, setSchoolClasses);
+    }
+  }, [(!allClasses || !allClasses.listData || allClasses.listData.length === 0), (!schoolClasses || !schoolClasses.listData || schoolClasses.listData.length === 0)]);
+
+  useEffect(() => {
+    if (!location.pathname.startsWith("/student/")) {
+      getLocalStorage("class") ? remLocalStorage("class") : null;
+    }
+  }, [location.pathname]);
+
+  useEffect(() => {
+    setIsCollapsed(isMobile);
+  }, [isMobile]);
+
+  useEffect(() => {
+    setIsCollapsed(isTab);
+  }, [isTab]);
+
+  useEffect(() => {
+    if (schoolInfo?.encrypted_id) {
+      API.CommonAPI.decryptText(schoolInfo).then((result) => {
+        if (result.status === "Success") {
+          setSchoolId(parseInt(result?.data));
+        }
+      });
+    }
+  }, [schoolInfo?.encrypted_id]);
+
+  useEffect(() => {
+    if (schoolId !== null) {
+      API.ImageAPI.getImage("school", schoolId)
+        .then(res => {
+          setSchoolImg(res?.data?.[0]?.image_src);
+        })
+        .catch(() => { });
+    }
+  }, [schoolId]);
+
+
+  const handleLogout = () => {
+    localStorage.clear();
+    navigate("/login", { replace: true });
+    window.location.reload();
+  };
+
+  const authUser = getLocalStorage("auth");
+  const [studentInfo, setStudentInfo] = useState(authUser?.student || null);
+
+  useEffect(() => {
+    if (rolePriority === 6 && authUser) {
+      if (authUser.student?.fullName && authUser.student?.class_name) {
+        setStudentInfo(authUser.student);
+      } else {
+        const identifier = authUser.username || authUser.id;
+        if (identifier) {
+          API.StudentAPI.getStudentProfile(identifier)
+            .then((res) => {
+              if (res?.data) {
+                const sData = res.data;
+                const updatedStudent = {
+                  fullName: sData.fullName || `${sData.firstname || ""} ${sData.lastname || ""}`.trim(),
+                  class_name: sData.class_name,
+                  section_name: sData.section_name,
+                  photo_url: sData.photo_url,
+                  enrollment_no: sData.enrollment_no,
+                  roll_no: sData.roll_no,
+                };
+                setStudentInfo(updatedStudent);
+                try {
+                  const currentAuth = getLocalStorage("auth");
+                  if (currentAuth) {
+                    currentAuth.student = { ...(currentAuth.student || {}), ...updatedStudent };
+                    setLocalStorage("auth", currentAuth);
+                  }
+                } catch (e) { }
+              }
+            })
+            .catch(() => { });
+        }
+      }
+    }
+  }, [rolePriority, authUser?.username]);
+
+  const studentDisplayName = rolePriority === 6 && studentInfo?.fullName
+    ? studentInfo.fullName
+    : (authUser?.name || authUser?.username || "---");
+  const studentClassSection = rolePriority === 6 && studentInfo?.class_name
+    ? `Class ${studentInfo.class_name}${studentInfo.section_name ? ` - ${studentInfo.section_name}` : ""}`
+    : "";
+  const studentRoleLabel = rolePriority === 6 ? "Student" : (authUser?.designation || authUser?.role || "---");
+  const studentInitials = getInitials(studentDisplayName);
+  const studentPhoto = rolePriority === 6 ? (studentInfo?.photo_url || null) : (schoolImg || dpsImg?.src || dpsImg || null);
+
+  const currentSchoolName = rolePriority > 1
+    ? (authUser?.school || authUser?.designation?.charAt(0)?.toUpperCase() + authUser?.designation?.slice(1))
+    : "The Skolar";
+
+  return (
+    <>
+      <aside
+        ref={sidebarRef}
+        onScroll={handleSidebarScroll}
+        className={`bg-white dark:bg-[#0f0f0f] border-r border-slate-100 dark:border-[#1a1a1a]/80 p-4 flex flex-col justify-between shrink-0 sticky top-[57px] h-[calc(100vh-57px)] overflow-y-auto custom-scrollbar 
+        ${isCollapsed ? "w-20 min-w-[5rem] max-w-[5rem] items-center px-2" : "w-64 min-w-[16rem] max-w-[16rem]"}`}
+      >
+        <div className="space-y-4 w-full">
+          {/* Current Profile Details Card */}
+          {authUser && (
+            !isCollapsed ? (
+              <div
+                onClick={() => {
+                  if (rolePriority === 6) {
+                    navigate("/student/profile");
+                  } else if (rolePriority > 1 && rolePriority <= 3) {
+                    navigate("/school/profile");
+                  } else if (schoolInfo) {
+                    navigate("/school/profile");
+                  } else {
+                    setProfileModalOpen(true);
+                  }
+                }}
+                className="bg-slate-50 dark:bg-[#141414] p-3 rounded-2xl border border-slate-100 dark:border-[#222] hover:border-emerald-300 dark:hover:border-emerald-700/50 hover:bg-slate-100/80 dark:hover:bg-[#1a1a1a] flex items-center space-x-3 transition-all cursor-pointer shadow-2xs group active:scale-[0.98]"
+                title="Click to view full profile"
+              >
+                {studentPhoto ? (
+                  <img
+                    src={studentPhoto}
+                    alt={studentDisplayName}
+                    className="w-9 h-9 rounded-full object-cover border border-emerald-500/20 group-hover:border-emerald-500/50 transition-colors shrink-0"
+                  />
+                ) : rolePriority === 6 ? (
+                  <div className="w-9 h-9 rounded-full bg-emerald-100 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-400 font-extrabold text-xs flex items-center justify-center border border-emerald-500/20 shrink-0">
+                    {studentInitials}
+                  </div>
+                ) : (
+                  <img
+                    src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=256&auto=format&fit=crop"
+                    alt="user"
+                    className="w-9 h-9 rounded-full object-cover border border-emerald-500/20 group-hover:border-emerald-500/50 transition-colors shrink-0"
+                  />
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="font-bold text-slate-800 dark:text-gray-200 text-xs truncate leading-tight group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                    {capitalizeEachWord(studentDisplayName)}
+                  </p>
+                  {rolePriority === 6 && studentClassSection && (
+                    <p className="text-[10px] font-semibold text-slate-500 dark:text-zinc-400 truncate leading-tight mt-0.5">
+                      {studentClassSection}
+                    </p>
+                  )}
+                  <p className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 truncate leading-tight mt-0.5 capitalize">
+                    {studentRoleLabel}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  if (rolePriority === 6) {
+                    navigate("/student/profile");
+                  } else if (rolePriority > 1 && rolePriority <= 3) {
+                    navigate("/school/profile");
+                  } else if (schoolInfo) {
+                    navigate("/school/profile");
+                  } else {
+                    setProfileModalOpen(true);
+                  }
+                }}
+                className="w-10 h-10 mx-auto rounded-2xl bg-slate-50 dark:bg-[#141414] border border-slate-100 dark:border-[#222] hover:border-emerald-400 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-95 group"
+                title={`${capitalizeEachWord(studentDisplayName)}${studentClassSection ? ` • ${studentClassSection}` : ""} (${capitalizeEachWord(studentRoleLabel)})`}
+              >
+                {studentPhoto ? (
+                  <img
+                    src={studentPhoto}
+                    alt={studentDisplayName}
+                    className="w-8 h-8 rounded-xl object-cover"
+                  />
+                ) : rolePriority === 6 ? (
+                  <div className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-400 font-extrabold text-xs flex items-center justify-center">
+                    {studentInitials}
+                  </div>
+                ) : (
+                  <img
+                    src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=256&auto=format&fit=crop"
+                    alt="user"
+                    className="w-8 h-8 rounded-xl object-cover"
+                  />
+                )}
+              </button>
+            )
+          )}
+
+          {/* Navigation Menu */}
+          <nav className="space-y-3 text-xs font-semibold w-full">
+            {/* 1. OVERVIEW */}
+            <div className="space-y-1">
+              {!isCollapsed ? (
+                <div className="px-3 pb-1">
+                  <span className="text-[10px] font-black tracking-wider text-slate-400 dark:text-zinc-500 uppercase">
+                    Overview
+                  </span>
+                </div>
+              ) : null}
+              <SidebarItem
+                title={rolePriority === 6 ? "Student Portal" : "Dashboard"}
+                to="/"
+                icon={<LayoutDashboard className="w-4 h-4" />}
+                selected={selected}
+                rolePriority={rolePriority}
+                allowedRoles={[1, 2, 3, 6]}
+                isCollapsed={isCollapsed}
+                setIsCollapsed={setIsCollapsed}
+              />
+            </div>
+            {/* 2. ACADEMICS & EXAMS */}
+            <div className="space-y-1">
+              {!isCollapsed ? (
+                <div className="px-3 pt-2 pb-1 border-t border-slate-100 dark:border-[#1a1a1a]">
+                  <span className="text-[10px] font-black tracking-wider text-slate-400 dark:text-zinc-500 uppercase">
+                    Academics & Exams
+                  </span>
+                </div>
+              ) : (
+                <div className="my-2 border-t border-slate-100 dark:border-[#1e1e1e] w-8 mx-auto" />
+              )}
+              <SidebarItem
+                title="Online Quiz"
+                to="/quiz/listing"
+                icon={<HelpCircle className="w-4 h-4" />}
+                selected={selected}
+                rolePriority={rolePriority}
+                menuVisibility={6}
+                isCollapsed={isCollapsed}
+                setIsCollapsed={setIsCollapsed}
+              />
+              <SidebarItem
+                title="Exams & Question Bank"
+                to="/assessment/listing"
+                icon={<FileText className="w-4 h-4" />}
+                selected={selected}
+                rolePriority={rolePriority}
+                menuVisibility={6}
+                isCollapsed={isCollapsed}
+                setIsCollapsed={setIsCollapsed}
+              />
+              <SidebarItem
+                title="Theory Results & Marksheet"
+                to="/marksheet/listing"
+                icon={<FileCheck className="w-4 h-4" />}
+                selected={selected}
+                rolePriority={rolePriority}
+                menuVisibility={6}
+                isCollapsed={isCollapsed}
+                setIsCollapsed={setIsCollapsed}
+              />
+              <SidebarItem
+                title="Homework"
+                to="/homework/listing"
+                icon={<BookOpen className="w-4 h-4" />}
+                selected={selected}
+                rolePriority={rolePriority}
+                menuVisibility={6}
+                isCollapsed={isCollapsed}
+                setIsCollapsed={setIsCollapsed}
+              />
+              <SidebarItem
+                title="Time Table"
+                to="/time-table/listing"
+                icon={<Table className="w-4 h-4" />}
+                selected={selected}
+                rolePriority={rolePriority}
+                menuVisibility={6}
+                isCollapsed={isCollapsed}
+                setIsCollapsed={setIsCollapsed}
+              />
+              <SidebarItem
+                title="Attendance"
+                to="/attendance/listing"
+                icon={<UserCheck className="w-4 h-4" />}
+                selected={selected}
+                rolePriority={rolePriority}
+                menuVisibility={6}
+                isCollapsed={isCollapsed}
+                setIsCollapsed={setIsCollapsed}
+              />
+              <SidebarItem
+                title="School Duration"
+                to="/school-duration/listing"
+                icon={<Hourglass className="w-4 h-4" />}
+                selected={selected}
+                rolePriority={rolePriority}
+                menuVisibility={4}
+                isCollapsed={isCollapsed}
+                setIsCollapsed={setIsCollapsed}
+              />
+            </div>
+
+            {/* 3. PEOPLE & USERS */}
+            {rolePriority !== 6 && (
+              <div className="space-y-1">
+                {!isCollapsed ? (
+                  <div className="px-3 pt-2 pb-1 border-t border-slate-100 dark:border-[#1a1a1a]">
+                    <span className="text-[10px] font-black tracking-wider text-slate-400 dark:text-zinc-500 uppercase">
+                      People & Users
+                    </span>
+                  </div>
+                ) : (
+                  <div className="my-2 border-t border-slate-100 dark:border-[#1e1e1e] w-8 mx-auto" />
+                )}
+                <SidebarItem
+                  title="Student"
+                  to="/student/listing"
+                  icon={<Users className="w-4 h-4" />}
+                  selected={selected}
+                  rolePriority={rolePriority}
+                  menuVisibility={5}
+                  excludeRoles={[6]}
+                  isCollapsed={isCollapsed}
+                  setIsCollapsed={setIsCollapsed}
+                />
+                <SidebarItem
+                  title="Teacher"
+                  to="/teacher/listing"
+                  icon={<BookCopy className="w-4 h-4" />}
+                  selected={selected}
+                  rolePriority={rolePriority}
+                  menuVisibility={3}
+                  isCollapsed={isCollapsed}
+                  setIsCollapsed={setIsCollapsed}
+                />
+                <SidebarItem
+                  title="Employee"
+                  to="/employee/listing"
+                  icon={<UserCircle className="w-4 h-4" />}
+                  selected={selected}
+                  rolePriority={rolePriority}
+                  menuVisibility={3}
+                  isCollapsed={isCollapsed}
+                  setIsCollapsed={setIsCollapsed}
+                />
+                <SidebarItem
+                  title="User"
+                  to="/user/listing"
+                  icon={<User className="w-4 h-4" />}
+                  selected={selected}
+                  rolePriority={rolePriority}
+                  menuVisibility={3}
+                  isCollapsed={isCollapsed}
+                  setIsCollapsed={setIsCollapsed}
+                />
+                <SidebarItem
+                  title="Generate ID Card"
+                  to="/generate-id-card/listing"
+                  icon={<MessageSquare className="w-4 h-4" />}
+                  selected={selected}
+                  rolePriority={rolePriority}
+                  menuVisibility={3}
+                  isCollapsed={isCollapsed}
+                  setIsCollapsed={setIsCollapsed}
+                />
+              </div>
+            )}
+
+            {/* 4. OPERATIONS & FINANCE */}
+            {rolePriority !== 6 && (
+              <div className="space-y-1">
+                {!isCollapsed ? (
+                  <div className="px-3 pt-2 pb-1 border-t border-slate-100 dark:border-[#1a1a1a]">
+                    <span className="text-[10px] font-black tracking-wider text-slate-400 dark:text-zinc-500 uppercase">
+                      Operations & Finance
+                    </span>
+                  </div>
+                ) : (
+                  <div className="my-2 border-t border-slate-100 dark:border-[#1e1e1e] w-8 mx-auto" />
+                )}
+                <SidebarItem
+                  title="Payment"
+                  to="/payment/listing"
+                  icon={<ReceiptText className="w-4 h-4" />}
+                  selected={selected}
+                  rolePriority={rolePriority}
+                  menuVisibility={3}
+                  excludeRoles={[6]}
+                  isCollapsed={isCollapsed}
+                  setIsCollapsed={setIsCollapsed}
+                />
+                <SidebarItem
+                  title="Bus"
+                  to="/bus/listing"
+                  icon={<Bus className="w-4 h-4" />}
+                  selected={selected}
+                  rolePriority={rolePriority}
+                  menuVisibility={3}
+                  excludeRoles={[6]}
+                  isCollapsed={isCollapsed}
+                  setIsCollapsed={setIsCollapsed}
+                />
+                <SidebarItem
+                  title="School"
+                  to="/school/listing"
+                  icon={<Building2 className="w-4 h-4" />}
+                  selected={selected}
+                  rolePriority={rolePriority}
+                  menuVisibility={1}
+                  isCollapsed={isCollapsed}
+                  setIsCollapsed={setIsCollapsed}
+                />
+                <SidebarItem
+                  title="School House"
+                  to="/school-house/listing"
+                  icon={<Flag className="w-4 h-4" />}
+                  selected={selected}
+                  rolePriority={rolePriority}
+                  menuVisibility={4}
+                  excludeRoles={[6]}
+                  isCollapsed={isCollapsed}
+                  setIsCollapsed={setIsCollapsed}
+                />
+              </div>
+            )}
+
+            {/* 5. ANNOUNCEMENTS & CALENDAR */}
+            <div className="space-y-1">
+              {!isCollapsed ? (
+                <div className="px-3 pt-2 pb-1 border-t border-slate-100 dark:border-[#1a1a1a]">
+                  <span className="text-[10px] font-black tracking-wider text-slate-400 dark:text-zinc-500 uppercase">
+                    Announcements & Calendar
+                  </span>
+                </div>
+              ) : (
+                <div className="my-2 border-t border-slate-100 dark:border-[#1e1e1e] w-8 mx-auto" />
+              )}
+              <SidebarItem
+                title="Notice Board"
+                to="/noticeboard/listing"
+                icon={<MessageSquare className="w-4 h-4" />}
+                selected={selected}
+                rolePriority={rolePriority}
+                menuVisibility={6}
+                isCollapsed={isCollapsed}
+                setIsCollapsed={setIsCollapsed}
+              />
+              <SidebarItem
+                title="Holiday"
+                to="/holiday/listing"
+                icon={<Calendar className="w-4 h-4" />}
+                selected={selected}
+                rolePriority={rolePriority}
+                menuVisibility={6}
+                isCollapsed={isCollapsed}
+                setIsCollapsed={setIsCollapsed}
+              />
+            </div>
+
+            {/* 6. CONFIGURATIONS */}
+            {rolePriority < 2 && (
+              <div className="space-y-1">
+                {!isCollapsed ? (
+                  <div className="px-3 pt-2 pb-1 border-t border-slate-100 dark:border-[#1a1a1a]">
+                    <span className="text-[10px] font-black tracking-wider text-slate-400 dark:text-zinc-500 uppercase">
+                      Configurations
+                    </span>
+                  </div>
+                ) : (
+                  <div className="my-2 border-t border-slate-100 dark:border-[#1e1e1e] w-8 mx-auto" />
+                )}
+                <SidebarItem
+                  title="Amenity"
+                  to="/amenity/listing"
+                  icon={<Activity className="w-4 h-4" />}
+                  selected={selected}
+                  rolePriority={rolePriority}
+                  menuVisibility={1}
+                  isCollapsed={isCollapsed}
+                  setIsCollapsed={setIsCollapsed}
+                />
+                <SidebarItem
+                  title="Class"
+                  to="/class/listing"
+                  icon={<LayoutGrid className="w-4 h-4" />}
+                  selected={selected}
+                  rolePriority={rolePriority}
+                  menuVisibility={1}
+                  isCollapsed={isCollapsed}
+                  setIsCollapsed={setIsCollapsed}
+                />
+                <SidebarItem
+                  title="Payment Method"
+                  to="/payment-method/listing"
+                  icon={<BookOpen className="w-4 h-4" />}
+                  selected={selected}
+                  rolePriority={rolePriority}
+                  menuVisibility={1}
+                  isCollapsed={isCollapsed}
+                  setIsCollapsed={setIsCollapsed}
+                />
+                <SidebarItem
+                  title="Section"
+                  to="/section/listing"
+                  icon={<List className="w-4 h-4" />}
+                  selected={selected}
+                  rolePriority={rolePriority}
+                  menuVisibility={1}
+                  isCollapsed={isCollapsed}
+                  setIsCollapsed={setIsCollapsed}
+                />
+                <SidebarItem
+                  title="Subject"
+                  to="/subject/listing"
+                  icon={<BookOpen className="w-4 h-4" />}
+                  selected={selected}
+                  rolePriority={rolePriority}
+                  menuVisibility={1}
+                  isCollapsed={isCollapsed}
+                  setIsCollapsed={setIsCollapsed}
+                />
+                <SidebarItem
+                  title="Role"
+                  to="/role/listing"
+                  icon={<Settings className="w-4 h-4" />}
+                  selected={selected}
+                  rolePriority={rolePriority}
+                  menuVisibility={1}
+                  isCollapsed={isCollapsed}
+                  setIsCollapsed={setIsCollapsed}
+                />
+              </div>
+            )}
+
+            {/* Sign Out Button */}
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 hover:text-rose-600 transition-all cursor-pointer font-bold mt-2"
+            >
+              <div className="w-4 h-4 shrink-0 flex items-center justify-center">
+                <LogOut className="w-4 h-4" />
+              </div>
+              {!isCollapsed && <span>Sign Out</span>}
+            </button>
+          </nav>
+        </div>
+
+        {/* Footer */}
+        {!isCollapsed && (
+          <div className="pt-4 pb-6 border-t border-slate-100 dark:border-[#1a1a1a]/80 text-[10px] text-slate-400 dark:text-gray-500 shrink-0 mt-6 w-full">
+            <p className="font-bold font-display text-slate-800 dark:text-white truncate">
+              {currentSchoolName} Platform Suite
+            </p>
+            <p className="mt-0.5">School Management Suite v2.4</p>
+            <p className="font-mono mt-1 text-[9px]">UTC: {new Date().toISOString().split("T")[0]}</p>
+          </div>
+        )}
+
+      </aside>
+
+      <ProfileModal
+        openDialog={profileModalOpen}
+        setOpenDialog={setProfileModalOpen}
+        onOpenChangePassword={() => setChangePwModalOpen(true)}
+      />
+
+      <ChangePwModal
+        openDialog={changePwModalOpen}
+        setOpenDialog={setChangePwModalOpen}
+      />
+    </>
+  );
+};
+
+Sidebar.propTypes = {
+  rolePriority: PropTypes.number,
+  isCollapsed: PropTypes.bool,
+  setIsCollapsed: PropTypes.func,
+  schoolInfo: PropTypes.object
+};
+
+export default Sidebar;
